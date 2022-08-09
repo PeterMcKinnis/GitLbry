@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -99,10 +101,10 @@ func push(remoteName string, url string, cmd string) error{
 	}
 
 	// Get All Remote Refs
-	refs, err := listRemotes();
-	if err != nil {
-		return err;
-	}
+	//refs, err := listRemotes();
+	//if err != nil {
+	//	return err;
+	//}
 
 	var args = []string {
 		"rev-list",
@@ -110,9 +112,9 @@ func push(remoteName string, url string, cmd string) error{
 		arg.localRef,
 	};
 
-	for _, rr := range refs {
-		args = append(args, "^" + rr);
-	}
+	//for _, rr := range refs {
+	//	args = append(args, "^" + rr);
+	//}
 
   out, err := exec.Command(
     "git", args...,
@@ -130,8 +132,31 @@ func push(remoteName string, url string, cmd string) error{
 }
 
 
-func listRemotes() ([]string, error) {
-	return nil, nil;
+func list() error {
+	remote_dir := "C:\\Users\\peter\\git-remote-lbry\\data\\remote-lbry";
+	heads := path.Join(remote_dir, "refs", "heads");
+	entries, err := os.ReadDir(heads);
+	if err != nil {
+		return nil;
+	}
+
+	for _, entry := range entries {
+		path := path.Join(heads, entry.Name());
+		content, err := ioutil.ReadFile(path);
+		contentStr := strings.TrimRight(string(content), "\n");
+		if err != nil {
+			return err;
+		}
+		print(fmt.Sprintf("%v refs/head/%v\n",  contentStr, entry.Name()));
+	}
+
+	// Todo also list remote tags
+
+	// Todo use head file for remote head...
+	print("@refs/heads/master HEAD\n");
+
+	print("\n");
+	return nil;
 }
 
 /*
@@ -171,8 +196,27 @@ func GitSymbolicRef(name string) (string, error) {
 }
 */
 
+func readLine() (string, error) {
+	line, err := stdinReader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+
+	// Echo to std out for debugging
+	fmt.Fprint(os.Stderr, "<< " + line);
+	return line, nil;
+}
+
+func print(str string) {
+	// Echo to std out for debugging
+	fmt.Fprint(os.Stderr, ">> " + str);
+	fmt.Print(str);
+}
+
+
 func Main() (er error) {
 	
+
   if len(os.Args) > 3 {
     return fmt.Errorf("Usage: git-remote-lbry remote-name url")
   }
@@ -185,7 +229,7 @@ func Main() (er error) {
 
 	for {
 		// Note that command will include the trailing newline.
-		command, err := stdinReader.ReadString('\n')
+		command, err := readLine()
 		if err != nil {
 			return err
 		}
@@ -193,9 +237,9 @@ func Main() (er error) {
 
 		switch  {
 		case strings.HasPrefix(command, "capabilities"):
-			fmt.Printf("fetch\n")
-			fmt.Printf("patch\n")
-			fmt.Printf("\n")
+			print("fetch\n")
+			print("push\n")
+			print("\n")
 		case strings.HasPrefix(command, "list"):
 			/*
 			refs, err := GitListRefs()
@@ -216,7 +260,11 @@ func Main() (er error) {
 		*/
 
 			// No refs present until we finish push
-			fmt.Printf("\n")
+			//fmt.Fprint(os.Stderr, "listing not implemented");
+			//return errors.New("list not implemented");
+			//print("8fa6b3625bc9541acb6f104ea06260c2a2c49ea0 refs/heads/master\n");
+			//print("@refs/heads/master HEAD\n");
+			list();
 
 		case strings.HasPrefix(command, "fetch"):
 			log.Fatalf("not implemented");
