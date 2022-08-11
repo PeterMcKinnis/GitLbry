@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -13,40 +12,8 @@ import (
 	"strings"
 )
 
+// TODO this shouldn't be hard coded
 
-type sha1 int 
-
-type tree struct {
-	id sha1
-	children []treeChild
-}
-
-type treeChild struct {
-	id	sha1
-
-	/// False if blob
-	isTree bool
-	name string
-}
-
-type blob struct {
-	id sha1
-	contents []byte
-}
-
-type commit struct {
-	id sha1
-	tree sha1
-	previous *sha1
-}
-
-type tag struct {
-	object sha1;
-}
-
-type gitObject interface {
-	nested() []sha1
-}
 
 
 var stdinReader = bufio.NewReader(os.Stdin);
@@ -92,7 +59,87 @@ func parsePushCmd(cmd string) (pushArg, error) {
 	}, nil;
 }
 
-func push(remoteName string, url string, cmd string) error{
+func getLocalObjType(sha string) (string, error) {
+
+	var args = []string {
+		"cat-file",
+		"-t",
+		sha,
+	};
+
+  out, err := exec.Command(
+    "git", args...,
+  ).Output();
+
+	if err != nil {
+		return "", err;
+	}
+
+	return strings.Trim(string(out), "\r\n"), nil;
+
+}
+
+func getLocalObjContent(sha string) ([]byte, error) {
+
+	// printErr(fmt.Sprintf("getLocalObjContent sha %v \n", sha));
+
+	var prefix = sha[:2];
+	var suffex = sha[2:];
+
+	// Make Directory if necessary
+	filePath := path.Join(".git", "objects", prefix, suffex)
+
+	result, err := ioutil.ReadFile(filePath);
+
+	if err != nil {
+		printErr("Error reading content\n")
+	}
+
+	return result, err;
+}
+
+func saveContentToRemote(sha string, url string, content []byte) error {
+
+	var prefix = sha[:2];
+	var suffex = sha[2:];
+
+	var url = url[7:];
+
+	// Make Directory if necessary
+	dirPath := path.Join(base_dir, path, prefix)
+	err := os.MkdirAll(dirPath, os.ModePerm)
+	if err != nil {
+		return err;
+	}
+
+	filePath := path.Join(dirPath, suffex);
+	return ioutil.WriteFile(filePath, content, 0666);
+}
+
+func pushObject(sha string) error {
+
+	if (sha == "") {
+		return nil;
+	}
+
+	// Get Type of object
+	content, err := getLocalObjContent(sha);
+
+	if err != nil {
+		printErr("147");
+		return err;
+	}
+
+	err = saveContentToRemote(sha, content);
+	if err != nil {
+		printErr("153")
+	}
+
+	return err;
+
+}
+
+func push(url string, cmd string) (er error) {
 
 	// Parse Command
 	arg, err := parsePushCmd(cmd);
@@ -100,21 +147,30 @@ func push(remoteName string, url string, cmd string) error{
 		return err;
 	}
 
-	// Get All Remote Refs
-	//refs, err := listRemotes();
-	//if err != nil {
-	//	return err;
-	//}
+	defer func ()  {
+		if er != nil {
+			print(fmt.Sprintf("error %v %v\n", arg.remoteRef, er));
+		}
+	}();
 
+	// Get SHA1 Id for all Remote Refs
+	refs, err := listRemoteRefSha();
+	if err != nil {
+		return err;
+	}
+
+	// Use git command rev-list to find all
+	// objects that need to be added to remote
 	var args = []string {
 		"rev-list",
 		"--objects",
+		"--no-object-names",
 		arg.localRef,
 	};
 
-	//for _, rr := range refs {
-	//	args = append(args, "^" + rr);
-	//}
+	for _, ref := range refs {
+		args = append(args, "^" + ref);
+	}
 
   out, err := exec.Command(
     "git", args...,
@@ -124,16 +180,72 @@ func push(remoteName string, url string, cmd string) error{
 		return err;
 	}
 
-	log.Print(string(out));
+	// Just for debugging
+	// fmt.Fprint(os.Stderr, string(out));
 
-	// Parse All Objects
-	return errors.New("Not implemented");
-	
+	objList :=	strings.Split(string(out), "\n");
+
+
+	// Upload all objects
+	for _, obj := range objList {
+		err := pushObject(obj);
+		if err != nil {
+			return err;
+		}
+	}
+
+	// TODO save ref
+	print(fmt.Sprintf("ok %v\n", arg.remoteRef));
+	return nil;
 }
 
+/// This gets the sha1 hash (as a string) for every branch and tag
+func listRemoteRefSha() ([]string, error) {
+	
+	var result []string;
+
+	// Add Heads
+	heads := path.Join(remote_dir, "refs", "heads");
+	entries, err := os.ReadDir(heads);
+	if err != nil {
+		return nil, err;
+	}
+
+	for _, entry := range entries {
+		path := path.Join(heads, entry.Name());
+		content, err := ioutil.ReadFile(path);
+		if (err != nil) {
+			return nil, err;
+		}
+		contentStr := strings.TrimRight(string(content), "\n");
+		result = append(result, contentStr);
+	}
+
+		// Add Heads
+		tags := path.Join(remote_dir, "refs", "tags");
+		entries, err = os.ReadDir(tags);
+		if err != nil {
+			return nil, err;
+		}
+	
+		for _, entry := range entries {
+			path := path.Join(heads, entry.Name());
+			content, err := ioutil.ReadFile(path);
+			if (err != nil) {
+				return nil, err;
+			}
+			contentStr := strings.TrimRight(string(content), "\n");
+			result = append(result, contentStr);
+		}
+	
+	return result, nil;
+}
 
 func list() error {
+
 	remote_dir := "C:\\Users\\peter\\git-remote-lbry\\data\\remote-lbry";
+	
+	// Add Heads
 	heads := path.Join(remote_dir, "refs", "heads");
 	entries, err := os.ReadDir(heads);
 	if err != nil {
@@ -150,7 +262,22 @@ func list() error {
 		print(fmt.Sprintf("%v refs/head/%v\n",  contentStr, entry.Name()));
 	}
 
-	// Todo also list remote tags
+	// Add Tags
+	tags := path.Join(remote_dir, "refs", "tags");
+	entries, err = os.ReadDir(tags);
+	if err != nil {
+		return nil;
+	}
+
+	for _, entry := range entries {
+		path := path.Join(heads, entry.Name());
+		content, err := ioutil.ReadFile(path);
+		contentStr := strings.TrimRight(string(content), "\n");
+		if err != nil {
+			return err;
+		}
+		print(fmt.Sprintf("%v refs/tags/%v\n",  contentStr, entry.Name()));
+	}
 
 	// Todo use head file for remote head...
 	print("@refs/heads/master HEAD\n");
@@ -159,42 +286,6 @@ func list() error {
 	return nil;
 }
 
-/*
-func GitListRefs() (map[string]string, error) {
-  out, err := exec.Command(
-    "git", "for-each-ref", "--format=%(objectname) %(refname)",
-    "refs/heads/",
-  ).Output()
-  if err != nil {
-    return nil, err
-  }
-
-  lines := bytes.Split(out, []byte{'\n'})
-  refs := make(map[string]string, len(lines))
-
-  for _, line := range lines {
-    fields := bytes.Split(line, []byte{' '})
-
-    if len(fields) < 2 {
-      break
-    }
-
-    refs[string(fields[1])] = string(fields[0])
-  }
-
-  return refs, nil
-}
-
-func GitSymbolicRef(name string) (string, error) {
-  out, err := exec.Command("git", "symbolic-ref", name).Output()
-  if err != nil {
-    return "", fmt.Errorf(
-      "GitSymbolicRef: git symbolic-ref %s: %v", name, out, err)
-  }
-
-  return string(bytes.TrimSpace(out)), nil
-}
-*/
 
 func readLine() (string, error) {
 	line, err := stdinReader.ReadString('\n')
@@ -209,21 +300,29 @@ func readLine() (string, error) {
 
 func print(str string) {
 	// Echo to std out for debugging
-	fmt.Fprint(os.Stderr, ">> " + str);
+	printInfo(str);
 	fmt.Print(str);
 }
 
+func printErr(str string) {
+	fmt.Fprint(os.Stderr, "err >> " + str);
+}
+
+func printInfo(str string) {
+	fmt.Fprint(os.Stderr, ">> " + str);
+}
 
 func Main() (er error) {
-	
-
   if len(os.Args) > 3 {
     return fmt.Errorf("Usage: git-remote-lbry remote-name url")
   }
 
+
+
   remoteName := os.Args[1]
   url := os.Args[2]
-  
+	printInfo(fmt.Sprintf("args, %v", os.Args));
+
 	// Add "path" to the import list
 	// localdir := path.Join(os.Getenv("GIT_DIR"), "go", remoteName)
 
@@ -271,17 +370,12 @@ func Main() (er error) {
 
 		case strings.HasPrefix(command, "push"):
 			push(remoteName, url, command);
-			log.Fatalf("not implemented");
-
 		case command == "":
 			return nil
 		default:
 			return fmt.Errorf("Received unknown command %q", command)
 		}
 	}
-
-
-
 }
 
 func main() {
