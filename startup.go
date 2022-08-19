@@ -137,7 +137,7 @@ func startup(lbryurl string) (Startup, error) {
 	}
 
 	// Update info.json
-	OutPrintf("updateing in-info");
+	OutPrintf("updateing in-info %+v", newInfo);
 	err = rh.saveInInfo(newInfo);
 	if err != nil {
 		return zero[Startup](), err;
@@ -306,8 +306,8 @@ func (rh RepoHash) downloadChanges(info InInfo) (InInfo, error) {
 
 	n := info.Index;
 	for {
-		
-		err := os.Rename(rh.outBundlePath(n), rh.inBundlePath(n))
+
+		err := copyFile(rh.outBundlePath(n), rh.inBundlePath(n))
 
 		// Special case, no more data to download
 		if os.IsNotExist(err) {
