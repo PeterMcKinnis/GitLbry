@@ -29,6 +29,8 @@ func Main() (er error) {
 			return err
 		}
 		switch  {
+		case strings.HasPrefix(command, "option"):
+			option(command);
 		case strings.HasPrefix(command, "capabilities"):
 			capabilities();
 		case strings.HasPrefix(command, "list for-push"):

@@ -18,15 +18,15 @@ import (
 type RepoHash string 
 
 func (rh RepoHash) inInfoPath() string {
-	return fmt.Sprintf(".gitlbry/%s/in/info.json", rh);
+	return fmt.Sprintf(".glbry/%s/in/info.json", rh);
 }
 
 func (rh RepoHash) inBundlePath(index int) string {
-	return fmt.Sprintf(".gitlbry/%s/in/%d.bundle", rh, index);
+	return fmt.Sprintf(".glbry/%s/in/%d.bundle", rh, index);
 }
 
 func (rh RepoHash) outBundlePath(index int) string {
-	return fmt.Sprintf(".gitlbry/%s/out/%d.bundle", rh, index);
+	return fmt.Sprintf(".glbry/%s/out/%d.bundle", rh, index);
 }
 
 func (rh RepoHash) nextOutBundlePath() (string, error) {
@@ -48,23 +48,23 @@ func (rh RepoHash) nextOutBundlePath() (string, error) {
 }
 
 func (rh RepoHash) rootPath() string {
-	return fmt.Sprintf(".gitlbry/%s", rh);
+	return fmt.Sprintf(".glbry/%s", rh);
 }
 
 func (rh RepoHash) inPath() string {
-	return fmt.Sprintf(".gitlbry/%s/in", rh);
+	return fmt.Sprintf(".glbry/%s/in", rh);
 }
 
 func (rh RepoHash) outPath() string {
-	return fmt.Sprintf(".gitlbry/%s/out", rh);
+	return fmt.Sprintf(".glbry/%s/out", rh);
 }
 
 func (rh RepoHash) gitRemoteClonePath() string {
-	return fmt.Sprintf(".gitlbry/%s", rh);
+	return fmt.Sprintf(".glbry/%s", rh);
 }
 
 func (rh RepoHash) headPath() string {
-	return fmt.Sprintf(".gitlbry/%s/.git/HEAD", rh);
+	return fmt.Sprintf(".glbry/%s/.git/HEAD", rh);
 }
 
 

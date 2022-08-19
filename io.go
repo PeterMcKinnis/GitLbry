@@ -9,7 +9,7 @@ import (
 
 
 var stdinReader = bufio.NewReader(os.Stdin);
-const verbose = true;
+var verbose bool = true;
 
 func readLine() (string, error) {
 	line, err := stdinReader.ReadString('\n')
