@@ -16,7 +16,7 @@ import (
 )
 
 var stdinReader = bufio.NewReader(os.Stdin)
-var verbose bool = false
+var verbose bool = true
 
 func readLine() (string, error) {
 	line, err := stdinReader.ReadString('\n')

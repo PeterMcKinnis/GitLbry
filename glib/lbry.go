@@ -308,7 +308,7 @@ func rpcCall[Req any, Res any](method string, req Req) (Res, error) {
 		return zero[Res](), errors.Wrap(err, "error marshaling request to json")
 	}
 
-	debugPrintf("rcp call: %v\n%v\n", method, string(rJson))
+	OutPrintf("rcp call: %v\n%v\n", method, string(rJson))
 
 	resp, err := http.Post(lbryrpcServer, "application/json", bytes.NewReader(rJson))
 	if err != nil {
@@ -316,7 +316,7 @@ func rpcCall[Req any, Res any](method string, req Req) (Res, error) {
 	}
 
 	buf := streamToByte(resp.Body)
-	debugPrintf("result:\n%v\n", string(buf))
+	OutPrintf("result:\n%v\n", string(buf))
 
 	var result rpcResult[Res]
 	err = json.Unmarshal(buf, &result)

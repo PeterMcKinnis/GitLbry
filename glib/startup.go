@@ -35,11 +35,11 @@ func (rh RepoName) settingsPath() string {
 }
 
 func (rh RepoName) inBundlePath(index int) string {
-	return fmt.Sprintf("%s/in/%d.bundle", rh, index)
+	return fmt.Sprintf("%s/in/%d.bundle", rh.hash, index)
 }
 
 func (rh RepoName) outBundlePath(index int) string {
-	return fmt.Sprintf("%s/out/%d.bundle", rh, index)
+	return fmt.Sprintf("%s/out/%d.bundle", rh.hash, index)
 }
 
 func (rh RepoName) inPath() string {
@@ -62,11 +62,11 @@ func (rh RepoName) headPath() string {
 	return fmt.Sprintf("%s/.git/HEAD", rh.rootPath())
 }
 
-func NewRepoHash(lbryUrl string) (RepoName, error) {
+func NewRepoName(lbryUrl string) (RepoName, error) {
 
 	// Hash
 	var h = sha1.Sum([]byte(lbryUrl))
-	hash := string(h[:])
+	hash := hex.EncodeToString(h[:]);
 
 	// Url
 	u, err := NewLbryUrl(lbryUrl)
@@ -77,7 +77,7 @@ func NewRepoHash(lbryUrl string) (RepoName, error) {
 	// name
 	name, ok := u.StreamName()
 	if !ok {
-		return zero[RepoName](), errors.Errorf("invalid url for repo.  Url may refer to a channel instead of a stream")
+		return zero[RepoName](), errors.Errorf("invalid url for repo: %v\n  Url may refer to a channel instead of a stream", lbryUrl)
 	}
 
 	return RepoName{
@@ -126,7 +126,7 @@ func zero[T any]() T {
 
 func startup(lbryurl string) (Startup, error) {
 
-	rh, err := NewRepoHash(lbryurl)
+	rh, err := NewRepoName(lbryurl)
 	if err != nil {
 		return zero[Startup](), err
 	}
@@ -160,7 +160,7 @@ func startup(lbryurl string) (Startup, error) {
 	}
 
 	// Update .gitlbry/<reposhash>/in from the lbry network
-	OutPrintf("getting changes from lbry network (mocked for now)")
+	OutPrintf("getting changes from lbry network")
 	err = rh.downloadBundles(&sync, settings)
 	if err != nil {
 		return zero[Startup](), err
@@ -418,7 +418,7 @@ func findBundle(name string, description string, settings *glSettings) (string, 
 		Name       string   `json:"name"`
 		ChannelIds []string `json:"channel_ids"`
 		PageSize   int      `json:"page_size"`
-		OrderBy    string   `json:"height"`
+		// OrderBy    string   `json:"height"`
 	}
 
 	type signChan struct {
@@ -438,7 +438,7 @@ func findBundle(name string, description string, settings *glSettings) (string, 
 		Name:       name,
 		ChannelIds: Map(settings.Authors, func(a *glAuthor) string { return a.ClaimId }),
 		PageSize:   5000,
-		OrderBy:    "publish_time",
+		//OrderBy:    "publish_time",
 	})
 
 	if err != nil {
@@ -465,6 +465,8 @@ func (rh RepoName) downloadBundles(sync *Sync, settings *glSettings) error {
 
 	for {
 
+		OutPrintf("Searching for bundle %v with priorhash='%v'", sync.DownloadIndex, sync.DownloadPriorHash)
+
 		// Repo Name
 		name := fmt.Sprintf("%v-%v", rh.name, sync.DownloadIndex)
 		description := sync.DownloadPriorHash
@@ -474,9 +476,11 @@ func (rh RepoName) downloadBundles(sync *Sync, settings *glSettings) error {
 
 		// Check for Successfull completion
 		if err == BundleNotFoundErr {
+			OutPrintf("Bundle not found.  Sync complete")
 			break
 		}
 		if err != nil {
+			OutPrintf("Error searching for bundle %v", err.Error())
 			return err
 		}
 

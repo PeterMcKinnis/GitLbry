@@ -19,8 +19,8 @@ func parseOptionArg(raw string) (OptionArg, error) {
 	}
 
 	return OptionArg{
-		name:  matches[0],
-		value: matches[1],
+		name:  matches[1],
+		value: matches[2],
 	}, nil
 }
 
